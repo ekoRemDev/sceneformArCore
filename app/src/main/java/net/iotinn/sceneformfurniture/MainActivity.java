@@ -1,24 +1,28 @@
 package net.iotinn.sceneformfurniture;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import com.google.ar.core.Anchor;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
-import com.google.ar.sceneform.HitTestResult;
+import com.google.ar.sceneform.AnchorNode;
+import com.google.ar.sceneform.rendering.ModelRenderable;
+import com.google.ar.sceneform.rendering.Renderable;
 import com.google.ar.sceneform.ux.ArFragment;
+import com.google.ar.sceneform.ux.TransformableNode;
 
 public class MainActivity extends AppCompatActivity {
 
-    //
     private ArFragment fragment;
 
-    private String selectedObject;
+    private Uri selectedObject;
 
 
     @Override
@@ -31,7 +35,14 @@ public class MainActivity extends AppCompatActivity {
         InitializeGallery();
 
         fragment.setOnTapArPlaneListener((HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-            Log.d("model", selectedObject);
+
+            if (plane.getType() != Plane.Type.HORIZONTAL_UPWARD_FACING) {
+                return;
+            }
+
+            Anchor anchor = hitResult.createAnchor();
+
+            placeObject(fragment,anchor,selectedObject);
 
         });
 
@@ -44,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         chair.setImageResource(R.drawable.chair_thumb);
         chair.setContentDescription("chair");
         chair.setOnClickListener(view -> {
-            selectedObject = "chair";
+            selectedObject = Uri.parse("Chair.sfb");
         });
         gallery.addView(chair);
 
@@ -53,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
         couch.setImageResource(R.drawable.couch_thumb);
         couch.setContentDescription("couch");
         couch.setOnClickListener(view -> {
-            selectedObject = "couch";
+            selectedObject = Uri.parse("model.sfb");
         });
         gallery.addView(couch);
 
@@ -62,9 +73,33 @@ public class MainActivity extends AppCompatActivity {
         lamp.setImageResource(R.drawable.lamp_thumb);
         lamp.setContentDescription("lamp");
         lamp.setOnClickListener(view -> {
-            selectedObject = "lamp";
+            selectedObject = Uri.parse("LampPost.sfb");
         });
         gallery.addView(lamp);
+    }
+
+    private void placeObject(ArFragment fragment, Anchor anchor,Uri model){
+        ModelRenderable.builder()
+                .setSource(fragment.getContext(),model)
+                .build()
+                .thenAccept(renderable -> addNodeToScene(fragment,anchor,renderable))
+                .exceptionally((throwable)->{
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setMessage(throwable.getMessage()).setTitle("Error Title");
+                    AlertDialog dialog = builder.create();
+                    dialog.show();
+                    return  null;
+                });
+    }
+
+    private void addNodeToScene(ArFragment fragment, Anchor anchor, Renderable renderable){
+        AnchorNode anchorNode = new AnchorNode(anchor);
+        TransformableNode node = new TransformableNode(fragment.getTransformationSystem());
+        node.setRenderable(renderable);
+        node.setParent(anchorNode);
+        fragment.getArSceneView().getScene().addChild(anchorNode);
+        node.select();
+
     }
 
 
